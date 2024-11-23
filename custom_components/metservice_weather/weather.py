@@ -354,18 +354,18 @@ class MetServiceForecastPublic(MetServicePublic):
         """Return the hourly forecast in native units."""
 
         forecast = []
-        hourly_readings = self.coordinator.get_current_public("hourly_temp")
-        hourly_obs = self.coordinator.get_current_public("hourly_obs")
-        hourly_skip = self.coordinator.get_current_public("hourly_skip")
+        hourly_readings = self.coordinator.get_forecast_hourly_public("hourly_temp")
+        hourly_obs = self.coordinator.get_forecast_hourly_public("hourly_obs")
+        hourly_skip = self.coordinator.get_forecast_hourly_public("hourly_skip")
         # print(hourly_readings , hourly_obs, hourly_skip)
         if hourly_obs is None: #Handles regions which do not have daily data
-            hourly_obs = self.coordinator.get_current_public("hourly_bkp_obs")
+            hourly_obs = self.coordinator.get_forecast_hourly_public("hourly_bkp_obs")
 
         if hourly_skip is None:
-            hourly_skip = self.coordinator.get_current_public("hourly_bkp_skip")
+            hourly_skip = self.coordinator.get_forecast_hourly_public("hourly_bkp_skip")
 
         if hourly_readings is None:
-            hourly_readings = self.coordinator.get_current_public("hourly_bkp_temp")
+            hourly_readings = self.coordinator.get_forecast_hourly_public("hourly_bkp_temp")
         # print(hourly_readings , hourly_obs, hourly_skip)
 
         for hour in range(

@@ -25,10 +25,12 @@ from homeassistant.const import (
 )
 
 from .const import (
+    LOCATION_REGIONS,
     SENSOR_MAP_MOBILE,
     SENSOR_MAP_PUBLIC,
     RESULTS_CURRENT,
     RESULTS_FORECAST_DAILY,
+    RESULTS_FORECAST_HOURLY,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -67,7 +69,7 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
         self._warnings_url = config.warnings_url
         self._api_key = config.api_key
         self._api_type = config.api_type
-        self._location = config.location
+        self._location = WeatherUpdateCoordinator._format_location(config.location)
         self._location_name = config.location_name
         self._latitude = config.latitude
         self._longitude = config.longitude
@@ -195,12 +197,20 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
             async with async_timeout.timeout(10):
                 url = f"{self._api_url}{self.location}"
                 response = await self._session.get(url, headers=headers)
-                result_current = await response.json(content_type=None)
+                page_location = await response.json(content_type=None)
+                if page_location is None:
+                    raise ValueError("No location data received.")
+                self._check_errors(url, page_location)
+            async with async_timeout.timeout(10):
+                result_current = await self._fetch_module(page_location, 'current-conditions/1', headers=headers)
                 if result_current is None:
                     raise ValueError("No current weather data received.")
-                self._check_errors(url, result_current)
             async with async_timeout.timeout(10):
-                url = f"{self._warnings_url}/{result_current['location']['type']}/{result_current['location']['key']}"
+                result_forecast_hourly = await self._fetch_module(page_location, 'forty-eight-hour-forecast/1', headers=headers)
+                if result_forecast_hourly is None:
+                    raise ValueError("No hourly forecast data received.")
+            async with async_timeout.timeout(10):
+                url = f"{self._warnings_url}/{page_location['location']['type']}/{page_location['location']['key']}"
                 response = await self._session.get(url, headers=headers)
                 result_warnings = await response.json(content_type=None)
                 if result_warnings is None:
@@ -213,10 +223,14 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
             async with async_timeout.timeout(10):
                 url = f"{self._api_url}{self.location}/7-days"
                 response = await self._session.get(url, headers=headers)
-                result_daily = await response.json(content_type=None)
-                if result_daily is None:
+                page_daily_forecast = await response.json(content_type=None)
+                if page_daily_forecast is None:
                     raise ValueError("No daily forecast data received.")
-                self._check_errors(url, result_daily)
+                self._check_errors(url, page_daily_forecast)
+            async with async_timeout.timeout(10):
+                result_forecast_daily = await self._fetch_module(page_daily_forecast, 'city-forecast/tabs/1', headers=headers)
+                if result_forecast_daily is None:
+                    raise ValueError("No daily forecast data received.")
             result_current['weather_warnings'] = warnings_text
             result = {}
             if self._enable_tides:
@@ -224,12 +238,14 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
                 result_current['tideImport'] = result_tides
                 result = {
                     RESULTS_CURRENT: result_current,
-                    RESULTS_FORECAST_DAILY: result_daily,
+                    RESULTS_FORECAST_DAILY: result_forecast_daily,
+                    RESULTS_FORECAST_HOURLY: result_forecast_hourly,
                 }
             else:
                 result = {
                     RESULTS_CURRENT: result_current,
-                    RESULTS_FORECAST_DAILY: result_daily,
+                    RESULTS_FORECAST_DAILY: result_forecast_daily,
+                    RESULTS_FORECAST_HOURLY: result_forecast_hourly,
                 }
             self.data = result
             return result
@@ -335,7 +351,7 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
     def get_forecast_daily_public(self, field, day):
         """Get a specific key from the MetService returned data."""
         try:
-            all_days = self.data[RESULTS_FORECAST_DAILY]["layout"]["primary"]["slots"]["main"]["modules"][0]["days"]
+            all_days = self.data[RESULTS_FORECAST_DAILY]["days"]
             if field == "":  # send a blank to get the number of days
                 return len(all_days)
             this_day = all_days[day]
@@ -359,6 +375,59 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
         except Exception as e:
             _LOGGER.error(f"Error retrieving mobile forecast daily sensor '{field}' for day {day}: {e}")
             return None
+
+    def get_forecast_hourly_public(self, field):
+        """Get a specific key from the MetService returned data."""
+        try:
+            keys = SENSOR_MAP_PUBLIC[field].split(".")
+            result = self.get_from_dict(self.data[RESULTS_FORECAST_HOURLY], keys)
+            return result
+        except Exception as e:
+            _LOGGER.error(f"Error retrieving public forecast hourly sensor '{field}' for day {day}: {e}")
+            return None
+
+    async def _fetch_module(self, obj, name, headers):
+        matches = list(self._find_object(
+            obj,
+            lambda x: x.get('type') == 'module' and x.get('name') == name
+        ))
+        if not matches:
+            return None
+
+        url = f"{self._api_url}{matches[0]['dataUrl'].removeprefix("/publicData/webdata")}"
+        response = await self._session.get(url, headers=headers)
+        result = await response.json(content_type=None)
+
+        if result is None:
+            return None
+
+        self._check_errors(url, result)
+        return result
+
+    def _find_object(self, obj, where):
+        if isinstance(obj, dict):
+            if where(obj):
+                yield obj
+
+            for key, value in obj.items():
+                for child in self._find_object(value, where):
+                    yield child
+        elif isinstance(obj, (list, set)) and not isinstance(obj, str):
+            for index, value in enumerate(obj):
+                for child in self._find_object(value, where):
+                    yield child
+
+    @classmethod
+    def _format_location(cls, location):
+        parts = location.split("/")
+    
+        if parts[2] == 'regions':
+            return location
+
+        return "/".join(parts[:2] + [
+            'regions',
+            LOCATION_REGIONS[parts[3]]
+        ] + parts[2:])
 
     @classmethod
     def _format_timestamp(cls, timestamp_val):
