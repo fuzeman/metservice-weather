@@ -22,6 +22,7 @@ from .const import (
     RESULTS_FIRE,
     RESULTS_FORECAST_DAILY,
     RESULTS_INTEGRATIONS,
+    RESULTS_SOIL,
 )
 from homeassistant.components.sensor import (
     SensorEntityDescription,
@@ -280,6 +281,30 @@ current_condition_sensor_descriptions_public = [
             ][0]
             if isinstance(data, list) and data else None
         ),
+    ),
+    WeatherSensorEntityDescription(
+        key="soil_temperature",
+        name="Soil Temperature",
+        icon=ICON_THERMOMETER,
+        collection=RESULTS_SOIL,
+        entity_registry_enabled_default=False,
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        unit_fn=lambda metric: UnitOfTemperature.CELSIUS
+        if metric
+        else UnitOfTemperature.FAHRENHEIT,
+        value_fn=lambda data, _: cast(float, data) if isinstance(data, (int | float)) else 0.0,
+    ),
+    WeatherSensorEntityDescription(
+        key="soil_moisture",
+        name="Soil Moisture",
+        icon="mdi:water-percent",
+        collection=RESULTS_SOIL,
+        entity_registry_enabled_default=False,
+        device_class=SensorDeviceClass.MOISTURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        unit_fn=lambda _: PERCENTAGE,
+        value_fn=lambda data, _: cast(int, data) if isinstance(data, (int | float)) else 0,
     ),
 ]
 

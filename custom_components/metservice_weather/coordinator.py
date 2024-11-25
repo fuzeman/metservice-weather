@@ -34,6 +34,7 @@ from .const import (
     RESULTS_FORECAST_DAILY,
     RESULTS_FORECAST_HOURLY,
     RESULTS_INTEGRATIONS,
+    RESULTS_SOIL,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -238,6 +239,14 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
                     result_fire = await self._fetch_module(page_location, 'city-forecast/tabs/1', headers=headers)
                     if result_fire is not None and 'days' in result_fire:
                         result_fire = result_fire['days'][0].get('fireWeatherData', {}).get('fireWeather')
+            async with async_timeout.timeout(10):
+                result_soil = await self._fetch_module(page_location, 'graph/soil-temp', headers=headers)
+                if result_soil is not None:
+                    for value in result_soil['observations']['values']:
+                        if value['title'] == 'Soil Temperature' and '°' in value['line1']:
+                            result_soil['temperature'] = float(value['line1'][0:value['line1'].index('°')])
+                        elif value['title'] == 'Soil Moisture':
+                            result_soil['moisture'] = int(value['line1'].removesuffix('%'))
             result_current['weather_warnings'] = warnings_text
             if self._enable_tides:
                 result_tides = await self.get_tides()
@@ -248,6 +257,7 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
                 RESULTS_FORECAST_DAILY: result_forecast_daily,
                 RESULTS_FORECAST_HOURLY: result_forecast_hourly,
                 RESULTS_INTEGRATIONS: result_integrations,
+                RESULTS_SOIL: result_soil,
             }
             self.data = result
             return result

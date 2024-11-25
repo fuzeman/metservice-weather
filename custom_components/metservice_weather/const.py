@@ -89,6 +89,8 @@ SENSOR_MAP_PUBLIC: Final[dict[str, str]] = {
     "weather_warnings": "weather_warnings",
     "fire_season": "season.short",
     "fire_danger": "danger.dailyObservation",
+    "soil_temperature": "temperature",
+    "soil_moisture": "moisture",
 }
 
 CONDITION_MAP: Final[dict[str, str]] = {
@@ -477,6 +479,7 @@ RESULTS_FIRE = "fire"
 RESULTS_FORECAST_DAILY = "daily"
 RESULTS_FORECAST_HOURLY = "hourly"
 RESULTS_INTEGRATIONS = "integrations"
+RESULTS_SOIL = "soil"
 
 ICON_THERMOMETER = "mdi:thermometer"
 ICON_WIND = "mdi:weather-windy"
