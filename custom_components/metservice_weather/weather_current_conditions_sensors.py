@@ -18,6 +18,10 @@ from .const import (
     FIELD_WINDSPEED,
     ICON_THERMOMETER,
     ICON_WIND,
+    RESULTS_CURRENT,
+    RESULTS_FIRE,
+    RESULTS_FORECAST_DAILY,
+    RESULTS_INTEGRATIONS,
 )
 from homeassistant.components.sensor import (
     SensorEntityDescription,
@@ -50,6 +54,7 @@ class WeatherSensorEntityDescription(SensorEntityDescription, WeatherRequiredKey
 
     attr_fn: Callable[[Any], dict[str, Any]] = lambda _: {}
     unit_fn: Callable[[bool], str | None] = lambda _: None
+    collection: str = RESULTS_CURRENT
 
 
 # Helper functions for truncation
@@ -90,6 +95,7 @@ current_condition_sensor_descriptions_public = [
         name="Forecast Description Updated Time",
         device_class=SensorDeviceClass.TIMESTAMP,
         icon="mdi:clock",
+        collection=RESULTS_FORECAST_DAILY,
         value_fn=lambda data, _: datetime.datetime.fromisoformat(data)
         if isinstance(data, str)
         else "Unknown",
@@ -98,6 +104,7 @@ current_condition_sensor_descriptions_public = [
         key=FIELD_DESCRIPTION,
         name="Weather Description",
         icon="mdi:note-text",
+        collection=RESULTS_FORECAST_DAILY,
         value_fn=lambda data, _: (
             f"{data[:252]}..." if isinstance(data, str) and len(data) > 255 else (data if data else "No description")
         ),
@@ -118,6 +125,7 @@ current_condition_sensor_descriptions_public = [
         key="uvIndex",
         name="UV Index",
         icon="mdi:sunglasses",
+        collection=RESULTS_INTEGRATIONS,
         value_fn=lambda data, _: cast(str, data) if isinstance(data, str) else "Unknown",
     ),
     WeatherSensorEntityDescription(
@@ -189,12 +197,14 @@ current_condition_sensor_descriptions_public = [
         key="pollen_levels",
         name="Pollen Levels",
         icon="mdi:flower",
+        collection=RESULTS_INTEGRATIONS,
         value_fn=lambda data, _: cast(str, data) if isinstance(data, str) else "Unknown",
     ),
     WeatherSensorEntityDescription(
         key="pollen_type",
         name="Pollen Type",
         icon="mdi:flower",
+        collection=RESULTS_INTEGRATIONS,
         value_fn=lambda data, _: (
             ". ".join(i.capitalize() for i in data.lstrip(" ").split(". ")[:20])[:255] + ("..." if len(data) > 255 else "")
             if isinstance(data, str)
@@ -213,24 +223,28 @@ current_condition_sensor_descriptions_public = [
         key="fire_season",
         name="Fire Season",
         icon="mdi:fire",
+        collection=RESULTS_FIRE,
         value_fn=lambda data, _: cast(str, data) if isinstance(data, str) else "Unknown",
     ),
     WeatherSensorEntityDescription(
         key="fire_danger",
         name="Fire Danger",
         icon="mdi:fire",
+        collection=RESULTS_FIRE,
         value_fn=lambda data, _: cast(str, data) if isinstance(data, str) else "Unknown",
     ),
     WeatherSensorEntityDescription(
         key="drying_index_morning",
         name="Clothes Drying Time - Morning",
         icon="mdi:tshirt-crew",
+        collection=RESULTS_INTEGRATIONS,
         value_fn=lambda data, _: cast(str, data.replace("Morning: ", "")) if isinstance(data, str) else "Unknown",
     ),
     WeatherSensorEntityDescription(
         key="drying_index_afternoon",
         name="Clothes Drying Time - Afternoon",
         icon="mdi:tshirt-crew",
+        collection=RESULTS_INTEGRATIONS,
         value_fn=lambda data, _: cast(str, data.replace("Afternoon: ", "")) if isinstance(data, str) else "Unknown",
     ),
     WeatherSensorEntityDescription(

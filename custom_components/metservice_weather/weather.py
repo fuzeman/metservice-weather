@@ -124,9 +124,10 @@ class MetServiceMobile(SingleCoordinatorWeatherEntity):
     @property
     def condition(self) -> str:
         """Return the current condition."""
-        if self.coordinator.get_current_mobile(FIELD_CONDITIONS) in CONDITION_MAP:
-            return CONDITION_MAP[self.coordinator.get_current_mobile(FIELD_CONDITIONS)]
-        return self.coordinator.get_current_mobile(FIELD_CONDITIONS)
+        condition = self.coordinator.get_current_mobile(FIELD_CONDITIONS)
+        if condition in CONDITION_MAP:
+            return CONDITION_MAP[condition]
+        return condition
 
 
 class MetServiceForecastMobile(MetServiceMobile):
@@ -302,9 +303,10 @@ class MetServicePublic(SingleCoordinatorWeatherEntity):
     @property
     def condition(self) -> str:
         """Return the current condition."""
-        if self.coordinator.get_current_public(FIELD_CONDITIONS) in CONDITION_MAP:
-            return CONDITION_MAP[self.coordinator.get_current_public(FIELD_CONDITIONS)]
-        return self.coordinator.get_current_public(FIELD_CONDITIONS)
+        condition = self.coordinator.get_forecast_daily_public(FIELD_CONDITIONS, 0)
+        if condition in CONDITION_MAP:
+            return CONDITION_MAP[condition]
+        return condition
 
 
 class MetServiceForecastPublic(MetServicePublic):

@@ -6,6 +6,7 @@ import asyncio
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 import logging
+import urllib.parse
 from typing import Any
 
 import aiohttp
@@ -29,8 +30,10 @@ from .const import (
     SENSOR_MAP_MOBILE,
     SENSOR_MAP_PUBLIC,
     RESULTS_CURRENT,
+    RESULTS_FIRE,
     RESULTS_FORECAST_DAILY,
     RESULTS_FORECAST_HOURLY,
+    RESULTS_INTEGRATIONS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -203,12 +206,8 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
                 self._check_errors(url, page_location)
             async with async_timeout.timeout(10):
                 result_current = await self._fetch_module(page_location, 'current-conditions/1', headers=headers)
-                if result_current is None:
-                    raise ValueError("No current weather data received.")
             async with async_timeout.timeout(10):
                 result_forecast_hourly = await self._fetch_module(page_location, 'forty-eight-hour-forecast/1', headers=headers)
-                if result_forecast_hourly is None:
-                    raise ValueError("No hourly forecast data received.")
             async with async_timeout.timeout(10):
                 url = f"{self._warnings_url}/{page_location['location']['type']}/{page_location['location']['key']}"
                 response = await self._session.get(url, headers=headers)
@@ -229,24 +228,27 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
                 self._check_errors(url, page_daily_forecast)
             async with async_timeout.timeout(10):
                 result_forecast_daily = await self._fetch_module(page_daily_forecast, 'city-forecast/tabs/1', headers=headers)
-                if result_forecast_daily is None:
-                    raise ValueError("No daily forecast data received.")
+            async with async_timeout.timeout(10):
+                result_integrations = await self._fetch_module(page_location, 'integrations', headers=headers)
+            async with async_timeout.timeout(10):
+                result_fire = await self._fetch_module(page_location, 'city-forecast/tabs/1', headers=headers, field='fireWeatherDataUrl')
+                if result_fire is not None and 'fireWeather' in result_fire:
+                    result_fire = result_fire['fireWeather'][0]
+                else:
+                    result_fire = await self._fetch_module(page_location, 'city-forecast/tabs/1', headers=headers)
+                    if result_fire is not None and 'days' in result_fire:
+                        result_fire = result_fire['days'][0].get('fireWeatherData', {}).get('fireWeather')
             result_current['weather_warnings'] = warnings_text
-            result = {}
             if self._enable_tides:
                 result_tides = await self.get_tides()
                 result_current['tideImport'] = result_tides
-                result = {
-                    RESULTS_CURRENT: result_current,
-                    RESULTS_FORECAST_DAILY: result_forecast_daily,
-                    RESULTS_FORECAST_HOURLY: result_forecast_hourly,
-                }
-            else:
-                result = {
-                    RESULTS_CURRENT: result_current,
-                    RESULTS_FORECAST_DAILY: result_forecast_daily,
-                    RESULTS_FORECAST_HOURLY: result_forecast_hourly,
-                }
+            result = {
+                RESULTS_CURRENT: result_current,
+                RESULTS_FIRE: result_fire,
+                RESULTS_FORECAST_DAILY: result_forecast_daily,
+                RESULTS_FORECAST_HOURLY: result_forecast_hourly,
+                RESULTS_INTEGRATIONS: result_integrations,
+            }
             self.data = result
             return result
 
@@ -386,15 +388,15 @@ class WeatherUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.error(f"Error retrieving public forecast hourly sensor '{field}' for day {day}: {e}")
             return None
 
-    async def _fetch_module(self, obj, name, headers):
+    async def _fetch_module(self, obj, name, headers, field='dataUrl'):
         matches = list(self._find_object(
             obj,
             lambda x: x.get('type') == 'module' and x.get('name') == name
         ))
-        if not matches:
+        if not matches or field not in matches[0]:
             return None
 
-        url = f"{self._api_url}{matches[0]['dataUrl'].removeprefix("/publicData/webdata")}"
+        url = urllib.parse.urljoin(self._api_url, matches[0][field])
         response = await self._session.get(url, headers=headers)
         result = await response.json(content_type=None)
 

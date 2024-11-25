@@ -66,7 +66,7 @@ SENSOR_MAP_PUBLIC: Final[dict[str, str]] = {
     FIELD_WINDDIR: "observations.wind.0.direction",
     FIELD_WINDSPEED: "observations.wind.0.averageSpeed",
     FIELD_WINDGUST: "observations.wind.0.gustSpeed",
-    FIELD_CONDITIONS: "days.0.condition",
+    FIELD_CONDITIONS: "condition",
     FIELD_DESCRIPTION: "days.0.forecasts.0.statement",
     "validTimeLocal": "days.0.issuedAt",
     "uvIndex": "uv.sunProtection.uvAlertLevel",
@@ -87,8 +87,8 @@ SENSOR_MAP_PUBLIC: Final[dict[str, str]] = {
     "daily_condition": "condition",
     "daily_datetime": "date",
     "weather_warnings": "weather_warnings",
-    "fire_season": "fireWeatherData.fireWeather.season.short",
-    "fire_danger": "fireWeatherData.fireWeather.danger.forecast",
+    "fire_season": "season.short",
+    "fire_danger": "danger.dailyObservation",
 }
 
 CONDITION_MAP: Final[dict[str, str]] = {
@@ -473,8 +473,10 @@ SPEEDUNIT = 3
 PRESSUREUNIT = 4
 
 RESULTS_CURRENT = "current"
+RESULTS_FIRE = "fire"
 RESULTS_FORECAST_DAILY = "daily"
 RESULTS_FORECAST_HOURLY = "hourly"
+RESULTS_INTEGRATIONS = "integrations"
 
 ICON_THERMOMETER = "mdi:thermometer"
 ICON_WIND = "mdi:weather-windy"
